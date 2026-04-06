@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeSnippet - 代码片段库</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Segoe UI',sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh;}
+.app{display:grid;grid-template-columns:280px 1fr;height:100vh;}
+.sidebar{background:#161b22;border-right:1px solid #30363d;display:flex;flex-direction:column;}
+.sidebar-header{padding:14px;border-bottom:1px solid #30363d;font-weight:600;}
+.category-list{flex:1;overflow-y:auto;padding:8px;}
+.category-item{padding:10px 14px;border-radius:6px;cursor:pointer;margin:2px 0;display:flex;align-items:center;gap:10px;}
+.category-item:hover{background:#21262d;}
+.category-item.active{background:#1f6feb33;border:1px solid #1f6feb;}
+.category-item .count{margin-left:auto;font-size:11px;color:#6e7681;background:#21262d;padding:2px 8px;border-radius:10px;}
+.main{display:flex;flex-direction:column;background:#0d1117;}
+.toolbar{height:44px;background:#161b22;border-bottom:1px solid #30363d;display:flex;align-items:center;padding:0 16px;gap:12px;}
+.toolbar input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:8px 12px;font-size:13px;}
+.snippet-list{flex:1;overflow-y:auto;padding:12px;}
+.snippet-item{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin:8px 0;cursor:pointer;transition:all 0.15s;}
+.snippet-item:hover{border-color:#1f6feb;}
+.snippet-item h4{font-size:13px;margin-bottom:4px;}
+.snippet-item p{font-size:11px;color:#8b949e;margin-bottom:8px;}
+.snippet-item pre{background:#0d1117;border-radius:6px;padding:8px;font-family:'Courier New',monospace;font-size:12px;overflow-x:hidden;white-space:pre-wrap;}
+.snippet-item .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px;}
+.snippet-item .tag{padding:2px 8px;background:#21262d;border-radius:4px;font-size:10px;color:#8b949e;}
+.btn{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;}
+.btn-primary{background:#238636;color:#fff;}
+.btn-secondary{background:#21262d;color:#c9d1d9;border:1px solid #30363d;}
+.modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:1000;}
+.modal.show{display:flex;}
+.modal-content{background:#161b22;border-radius:12px;padding:24px;min-width:500px;max-width:800px;max-height:80vh;overflow-y:auto;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px;}
+.field input,.field textarea,.field select{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:8px 12px;font-size:13px;}
+.field textarea{min-height:150px;font-family:'Courier New',monospace;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header">📝 代码片段</div>
+    <div class="category-list" id="category-list"></div>
+    <div style="padding:12px;border-top:1px solid #30363d">
+      <button class="btn btn-primary" style="width:100%" onclick="showAdd()">+ 新建</button>
+    </div>
+  </div>
+  
+  <div class="main">
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="搜索片段..." oninput="filter()">
+      <button class="btn btn-secondary" onclick="exportAll()">导出</button>
+    </div>
+    <div class="snippet-list" id="snippet-list"></div>
+  </div>
+</div>
+
+<div class="modal" id="add-modal">
+  <div class="modal-content">
+    <h3 style="margin-bottom:16px">新建片段</h3>
+    <div class="field"><label>标题</label><input type="text" id="new-title"></div>
+    <div class="field"><label>描述</label><input type="text" id="new-desc"></div>
+    <div class="field"><label>分类</label><select id="new-category"></select></div>
+    <div class="field"><label>语言</label><select id="new-lang"><option>JavaScript</option><option>Python</option><option>HTML</option><option>CSS</option><option>SQL</option><option>Shell</option></select></div>
+    <div class="field"><label>代码</label><textarea id="new-code"></textarea></div>
+    <div class="field"><label>标签 (逗号分隔)</label><input type="text" id="new-tags"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="addSnippet()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const defaultSnippets = [
+  { id: 1, title: '防抖函数', desc: '防止函数频繁调用', category: 'JavaScript', lang: 'JavaScript', code: 'function debounce(fn, delay) {\n  let timer;\n  return function(...args) {\n    clearTimeout(timer);\n    timer = setTimeout(() => fn.apply(this, args), delay);\n  };\n}', tags: ['utils', 'performance'] },
+  { id: 2, title: '节流函数', desc: '限制函数调用频率', category: 'JavaScript', lang: 'JavaScript', code: 'function throttle(fn, limit) {\n  let inThrottle;\n  return function(...args) {\n    if (!inThrottle) {\n      fn.apply(this, args);\n      inThrottle = true;\n      setTimeout(() => inThrottle = false, limit);\n    }\n  };\n}', tags: ['utils', 'performance'] },
+  { id: 3, title: '深拷贝', desc: '递归复制对象', category: 'JavaScript', lang: 'JavaScript', code: 'function deepClone(obj) {\n  if (obj === null || typeof obj !== "object") return obj;\n  const clone = Array.isArray(obj) ? [] : {};\n  for (let key in obj) {\n    if (obj.hasOwnProperty(key)) {\n      clone[key] = deepClone(obj[key]);\n    }\n  }\n  return clone;\n}', tags: ['utils'] },
+  { id: 4, title: 'Fetch封装', desc: '带错误处理的fetch', category: 'JavaScript', lang: 'JavaScript', code: 'async function request(url, options = {}) {\n  try {\n    const res = await fetch(url, options);\n    if (!res.ok) throw new Error(`HTTP ${res.status}`);\n    return await res.json();\n  } catch (err) {\n    console.error("Request failed:", err);\n    throw err;\n  }\n}', tags: ['api', 'network'] },
+  { id: 5, title: '读取文件', desc: 'Python读取文件', category: 'Python', lang: 'Python', code: 'with open("file.txt", "r", encoding="utf-8") as f:\n    content = f.read()\n    print(content)', tags: ['file'] },
+  { id: 6, title: 'HTTP服务器', desc: 'Python简单HTTP服务器', category: 'Python', lang: 'Python', code: 'from http.server import HTTPServer, SimpleHTTPRequestHandler\n\nserver = HTTPServer(("0.0.0.0", 8000), SimpleHTTPRequestHandler)\nprint("Server running on port 8000")\nserver.serve_forever()', tags: ['server'] },
+];
+
+let snippets = JSON.parse(localStorage.getItem('codesnippet_data') || 'null') || defaultSnippets;
+let currentCategory = 'all';
+
+function getCategories() {
+  const cats = { all: snippets.length };
+  snippets.forEach(s => {
+    cats[s.category] = (cats[s.category] || 0) + 1;
+  });
+  return cats;
+}
+
+function renderCategories() {
+  const cats = getCategories();
+  document.getElementById('category-list').innerHTML = Object.entries(cats).map(([name, count]) => `
+    <div class="category-item ${currentCategory === name ? 'active' : ''}" onclick="selectCategory('${name}')">
+      <span>${name === 'all' ? '📁 全部' : '📄 ' + name}</span>
+      <span class="count">${count}</span>
+    </div>
+  `).join('');
+  
+  document.getElementById('new-category').innerHTML = Object.keys(cats).filter(c => c !== 'all').map(c => `<option>${c}</option>`).join('') + '<option>Other</option>';
+}
+
+function selectCategory(cat) {
+  currentCategory = cat;
+  renderCategories();
+  renderSnippets();
+}
+
+function renderSnippets() {
+  const search = document.getElementById('search').value.toLowerCase();
+  let filtered = snippets;
+  
+  if (currentCategory !== 'all') {
+    filtered = filtered.filter(s => s.category === currentCategory);
+  }
+  
+  if (search) {
+    filtered = filtered.filter(s => 
+      s.title.toLowerCase().includes(search) ||
+      s.desc.toLowerCase().includes(search) ||
+      s.code.toLowerCase().includes(search) ||
+      s.tags.some(t => t.toLowerCase().includes(search))
+    );
+  }
+  
+  document.getElementById('snippet-list').innerHTML = filtered.map(s => `
+    <div class="snippet-item" onclick="copyCode(${s.id})">
+      <h4>${s.title}</h4>
+      <p>${s.desc}</p>
+      <pre>${escapeHtml(s.code.slice(0, 200))}${s.code.length > 200 ? '...' : ''}</pre>
+      <div class="tags">
+        <span class="tag">${s.lang}</span>
+        ${s.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+      </div>
+    </div>
+  `).join('') || '<div style="text-align:center;padding:40px;color:#6e7681">暂无片段</div>';
+}
+
+function copyCode(id) {
+  const s = snippets.find(x => x.id === id);
+  if (s) {
+    navigator.clipboard.writeText(s.code);
+  }
+}
+
+function showAdd() {
+  document.getElementById('add-modal').classList.add('show');
+  document.getElementById('new-title').value = '';
+  document.getElementById('new-desc').value = '';
+  document.getElementById('new-code').value = '';
+  document.getElementById('new-tags').value = '';
+}
+
+function closeModal() {
+  document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+}
+
+function addSnippet() {
+  const title = document.getElementById('new-title').value.trim();
+  const desc = document.getElementById('new-desc').value.trim();
+  const category = document.getElementById('new-category').value;
+  const lang = document.getElementById('new-lang').value;
+  const code = document.getElementById('new-code').value;
+  const tags = document.getElementById('new-tags').value.split(',').map(t => t.trim()).filter(t => t);
+  
+  if (!title || !code) return;
+  
+  snippets.push({
+    id: Date.now(),
+    title, desc, category, lang, code, tags
+  });
+  
+  save();
+  closeModal();
+  renderCategories();
+  renderSnippets();
+}
+
+function filter() {
+  renderSnippets();
+}
+
+function exportAll() {
+  const data = JSON.stringify(snippets, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'snippets.json';
+  a.click();
+}
+
+function save() {
+  localStorage.setItem('codesnippet_data', JSON.stringify(snippets));
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+renderCategories();
+renderSnippets();
+</script>
+</body>
+</html>
